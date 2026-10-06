@@ -19,8 +19,8 @@ const CONFIG = {
   ],
 
   TELEGRAM_THRESHOLD_M: 0.9, // default is 0.90 (90 cm)
-  LINE_THRESHOLD_M: 0.30, // default is 0.30 (30 cm)
-  RESET_BUFFER_M: 0.20,
+  LINE_THRESHOLD_M: 0.3, // default is 0.30 (30 cm)
+  RESET_BUFFER_M: 0.3,
 
   STATE_FILE: 'state.json',
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
