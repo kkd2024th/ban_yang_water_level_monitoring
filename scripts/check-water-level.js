@@ -18,8 +18,8 @@ const CONFIG = {
     { label: 'น้ำพรม อ.เกษตรสมบูรณ์ (ต.บ้านยาง)', oldcode: 'URTU09' }
   ],
 
-  TELEGRAM_THRESHOLD_M: 1.00,
-  LINE_THRESHOLD_M: 0.50,
+  TELEGRAM_THRESHOLD_M: 6.00, // default is 1.00 (100 cm)
+  LINE_THRESHOLD_M: 6.00, // default is 0.50 (50 cm)
   RESET_BUFFER_M: 0.20,
 
   STATE_FILE: 'state.json',
