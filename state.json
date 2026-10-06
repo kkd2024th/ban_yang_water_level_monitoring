@@ -1,7 +1,16 @@
 {
   "stations": {
-    "E.93": { "telegramSent": false, "lineSent": false },
-    "URCD02": { "telegramSent": false, "lineSent": false },
-    "URTU09": { "telegramSent": false, "lineSent": false }
+    "E.93": {
+      "telegramSent": true,
+      "lineSent": true
+    },
+    "URCD02": {
+      "telegramSent": true,
+      "lineSent": true
+    },
+    "URTU09": {
+      "telegramSent": true,
+      "lineSent": true
+    }
   }
 }
