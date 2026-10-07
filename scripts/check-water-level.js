@@ -1,10 +1,11 @@
 /**
  * ====================================================================
- * ระบบแจ้งเตือนระดับน้ำ 3 สถานี อ.เกษตรสมบูรณ์ จ.ชัยภูมิ
+ * ระบบแจ้งเตือนระดับน้ำ 3 สถานี อ.เกษตรสมบูรณ์ จ.ชัยภูมิ — ขั้นบันได (Step Ladder)
  * - บ้านยาง (E.93)
  * - น้ำพรม บ้านกุดเลาะ (URCD02)
  * - น้ำพรม อ.เกษตรสมบูรณ์ (URTU09)
- * - Telegram + LINE (ไม่มีอีเมล)
+ * - Telegram เริ่มที่ V=-1.0 ม., LINE เริ่มที่ V=-0.5 ม. ทุกๆ 0.5 ม.
+ * - V = ระดับน้ำเทียบตลิ่ง (+ สูงกว่าตลิ่ง / - ต่ำกว่าตลิ่ง) = -diff_wl_bank
  * ====================================================================
  */
 import { readFile, writeFile } from 'fs/promises';
@@ -18,15 +19,34 @@ const CONFIG = {
     { label: 'น้ำพรม อ.เกษตรสมบูรณ์ (ต.บ้านยาง)', oldcode: 'URTU09' }
   ],
 
-  TELEGRAM_THRESHOLD_M: 1.0, // default is 1.0 (100 cm)
-  LINE_THRESHOLD_M: 0.5, // default is 0.5 (50 cm)
-  RESET_BUFFER_M: 0.25,
+  LEVEL_STEP_V: 0.5,
+  LEVEL_RESET_BUFFER_V: 0.25,
+  TELEGRAM_LEVEL_START_V: -1.0,
+  LINE_LEVEL_START_V: -0.5,
+  LEVEL_COUNT: 10,
 
   STATE_FILE: 'state.json',
   TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
   TELEGRAM_IDS_FILE: 'telegram_ids.txt',
   LINE_CHANNEL_ACCESS_TOKEN: process.env.LINE_CHANNEL_ACCESS_TOKEN
 };
+
+// ------------------------- สร้างรายการระดับขั้นบันได -------------------------------
+function buildLevels(startV) {
+  const levels = [];
+  for (let i = 0; i < CONFIG.LEVEL_COUNT; i++) {
+    const V = +(startV + i * CONFIG.LEVEL_STEP_V).toFixed(2);
+    levels.push({
+      V,
+      diffThreshold: +(-V).toFixed(2),
+      diffReset: +((-V) + CONFIG.LEVEL_RESET_BUFFER_V).toFixed(2)
+    });
+  }
+  return levels;
+}
+
+const TELEGRAM_LEVELS = buildLevels(CONFIG.TELEGRAM_LEVEL_START_V);
+const LINE_LEVELS = buildLevels(CONFIG.LINE_LEVEL_START_V);
 
 // ------------------------- ดึงข้อมูลทั้งหมดจาก ThaiWater API -------------------------------
 async function fetchAllStations() {
@@ -55,16 +75,40 @@ async function getTelegramIds() {
 }
 
 // ------------------------- อ่าน/เขียนสถานะ -------------------------------
+function defaultChannelState() {
+  return { sentLevels: new Array(CONFIG.LEVEL_COUNT).fill(false), alertCount: 0 };
+}
+
+function defaultStationState() {
+  return { telegram: defaultChannelState(), line: defaultChannelState() };
+}
+
+function defaultState() {
+  const stations = {};
+  CONFIG.STATIONS.forEach(s => {
+    stations[s.oldcode] = defaultStationState();
+  });
+  return { stations };
+}
+
 async function getState() {
   try {
     const raw = await readFile(CONFIG.STATE_FILE, 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    const stations = {};
+    const parsed = JSON.parse(raw);
+
+    if (!parsed.stations) return defaultState();
+
+    // เผื่อกรณีมีสถานีใหม่เพิ่มเข้ามาทีหลัง หรือไฟล์เก่าโครงสร้างไม่ตรง
     CONFIG.STATIONS.forEach(s => {
-      stations[s.oldcode] = { telegramSent: false, lineSent: false };
+      const st = parsed.stations[s.oldcode];
+      if (!st || !st.telegram || !st.line) {
+        parsed.stations[s.oldcode] = defaultStationState();
+      }
     });
-    return { stations };
+
+    return parsed;
+  } catch {
+    return defaultState();
   }
 }
 
@@ -73,7 +117,7 @@ async function setState(state) {
 }
 
 // ------------------------- สร้างข้อความแจ้งเตือน -------------------------------
-function buildMessage(stationLabel, item, diffWlBank) {
+function buildMessage(stationLabel, item, diffWlBank, level, alertCount) {
   const stationNameTh = item.station.tele_station_name.th.trim();
   const provinceTh = item.geocode.province_name.th;
   const amphoeTh = item.geocode.amphoe_name.th;
@@ -82,13 +126,18 @@ function buildMessage(stationLabel, item, diffWlBank) {
   const waterlevelNow = (minBank - diffWlBank).toFixed(2);
   const now = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
 
+  const actualV = -diffWlBank;
+  const actualVText = (actualV >= 0 ? '+' : '') + actualV.toFixed(2);
+  const levelVText = (level.V >= 0 ? '+' : '') + level.V.toFixed(2);
+
   return (
-    `🚨 แจ้งเตือนระดับน้ำใกล้ล้นตลิ่ง\n\n` +
+    `🚨 แจ้งเตือนระดับน้ำใกล้ล้นตลิ่ง (การแจ้งเตือนครั้งที่ ${alertCount})\n\n` +
     `สถานี: ${stationLabel}\n` +
     `ชื่อในระบบ: ${stationNameTh}\n` +
     `ที่ตั้ง: ต.${tumbonTh} อ.${amphoeTh} จ.${provinceTh}\n` +
     `ระดับน้ำปัจจุบัน (เทียบ MSL): ~${waterlevelNow} ม.\n` +
-    `ต่ำกว่าตลิ่ง: ${diffWlBank} ม.\n` +
+    `ระดับน้ำเทียบตลิ่ง (ค่าจริง ณ ขณะนี้): ${actualVText} ม. (${actualV >= 0 ? 'สูงกว่าตลิ่ง' : 'ต่ำกว่าตลิ่ง'})\n` +
+    `ระดับเกณฑ์ที่ข้าม: ${levelVText} ม.\n` +
     `เวลาที่ตรวจสอบ: ${now}\n\n` +
     `ข้อมูลจาก: ThaiWater (สสน.)`
   );
@@ -145,8 +194,37 @@ async function sendLine(message) {
   }
 }
 
+// ------------------------- ประมวลผลขั้นบันไดของช่องทางหนึ่ง -------------------------------
+async function processLadder(channelName, levels, channelState, stationLabel, item, diffWlBank, sendFn) {
+  let changed = false;
+
+  for (let i = 0; i < levels.length; i++) {
+    const level = levels[i];
+    const alreadySent = channelState.sentLevels[i];
+
+    if (diffWlBank <= level.diffThreshold) {
+      if (!alreadySent) {
+        channelState.alertCount += 1;
+        const message = buildMessage(stationLabel, item, diffWlBank, level, channelState.alertCount);
+        await sendFn(message);
+        channelState.sentLevels[i] = true;
+        changed = true;
+        console.log(`[${stationLabel}][${channelName}] ข้ามระดับ V=${level.V} ม. → ส่งแจ้งเตือนครั้งที่ ${channelState.alertCount}`);
+      }
+    } else if (diffWlBank >= level.diffReset) {
+      if (alreadySent) {
+        channelState.sentLevels[i] = false;
+        changed = true;
+        console.log(`[${stationLabel}][${channelName}] ระดับ V=${level.V} ม. รีเซ็ทแล้ว (น้ำกลับขึ้น)`);
+      }
+    }
+  }
+
+  return changed;
+}
+
 // ------------------------- ประมวลผลแต่ละสถานี -------------------------------
-async function processStation(stationConfig, allStations, state, stateRef) {
+async function processStation(stationConfig, allStations, state) {
   const item = allStations.find(s => s.station?.tele_station_oldcode?.trim() === stationConfig.oldcode);
 
   if (!item) {
@@ -155,42 +233,18 @@ async function processStation(stationConfig, allStations, state, stateRef) {
   }
 
   const diffWlBank = parseFloat(item.diff_wl_bank);
-  const stState = state.stations[stationConfig.oldcode] || { telegramSent: false, lineSent: false };
+  const stState = state.stations[stationConfig.oldcode];
 
-  console.log(`[${stationConfig.label}] diff_wl_bank: ${diffWlBank} ม. | Telegram: ${stState.telegramSent} | LINE: ${stState.lineSent}`);
+  console.log(`[${stationConfig.label}] diff_wl_bank: ${diffWlBank} ม. (V=${(-diffWlBank).toFixed(2)} ม.)`);
 
-  let changed = false;
+  const telegramChanged = await processLadder(
+    'Telegram', TELEGRAM_LEVELS, stState.telegram, stationConfig.label, item, diffWlBank, sendTelegram
+  );
+  const lineChanged = await processLadder(
+    'LINE', LINE_LEVELS, stState.line, stationConfig.label, item, diffWlBank, sendLine
+  );
 
-  // Telegram
-  if (diffWlBank <= CONFIG.TELEGRAM_THRESHOLD_M) {
-    if (!stState.telegramSent) {
-      await sendTelegram(buildMessage(stationConfig.label, item, diffWlBank));
-      stState.telegramSent = true;
-      changed = true;
-    }
-  } else if (diffWlBank >= CONFIG.TELEGRAM_THRESHOLD_M + CONFIG.RESET_BUFFER_M) {
-    if (stState.telegramSent) {
-      stState.telegramSent = false;
-      changed = true;
-    }
-  }
-
-  // LINE
-  if (diffWlBank <= CONFIG.LINE_THRESHOLD_M) {
-    if (!stState.lineSent) {
-      await sendLine(buildMessage(stationConfig.label, item, diffWlBank));
-      stState.lineSent = true;
-      changed = true;
-    }
-  } else if (diffWlBank >= CONFIG.LINE_THRESHOLD_M + CONFIG.RESET_BUFFER_M) {
-    if (stState.lineSent) {
-      stState.lineSent = false;
-      changed = true;
-    }
-  }
-
-  state.stations[stationConfig.oldcode] = stState;
-  return changed;
+  return telegramChanged || lineChanged;
 }
 
 // ------------------------- ฟังก์ชันหลัก -------------------------------
@@ -201,12 +255,14 @@ async function main() {
   let anyChanged = false;
 
   for (const stationConfig of CONFIG.STATIONS) {
-    const changed = await processStation(stationConfig, allStations, state, state);
+    const changed = await processStation(stationConfig, allStations, state);
     if (changed) anyChanged = true;
   }
 
   if (anyChanged) {
     await setState(state);
+  } else {
+    console.log('ไม่มีการเปลี่ยนแปลงสถานะในรอบนี้ (ทุกสถานี)');
   }
 }
 
