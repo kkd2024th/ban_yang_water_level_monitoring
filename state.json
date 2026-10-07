@@ -1,16 +1,16 @@
 {
   "stations": {
     "E.93": {
-      "telegramSent": false,
-      "lineSent": false
+      "telegram": { "sentLevels": [false,false,false,false,false,false,false,false,false,false], "alertCount": 0 },
+      "line": { "sentLevels": [false,false,false,false,false,false,false,false,false,false], "alertCount": 0 }
     },
     "URCD02": {
-      "telegramSent": false,
-      "lineSent": false
+      "telegram": { "sentLevels": [false,false,false,false,false,false,false,false,false,false], "alertCount": 0 },
+      "line": { "sentLevels": [false,false,false,false,false,false,false,false,false,false], "alertCount": 0 }
     },
     "URTU09": {
-      "telegramSent": true,
-      "lineSent": false
+      "telegram": { "sentLevels": [false,false,false,false,false,false,false,false,false,false], "alertCount": 0 },
+      "line": { "sentLevels": [false,false,false,false,false,false,false,false,false,false], "alertCount": 0 }
     }
   }
 }
