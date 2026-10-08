@@ -2,7 +2,7 @@ name: Check Water Level (Kasetsomboon)
 
 on:
   schedule:
-    - cron: '7,27,47 * * * *'   # ทุก 20 นาที (นาทีที่ 7, 27, 47 ของทุกชั่วโมง)
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 permissions:
