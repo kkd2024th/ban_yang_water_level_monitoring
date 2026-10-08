@@ -131,7 +131,7 @@ function buildMessage(stationLabel, item, diffWlBank, level, alertCount) {
   const levelVText = (level.V >= 0 ? '+' : '') + level.V.toFixed(2);
 
   return (
-    `🚨 แจ้งเตือนระดับน้ำใกล้ล้นตลิ่ง (การแจ้งเตือนครั้งที่ ${alertCount})\n\n` +
+    `🚨 แจ้งเตือนระดับน้ำใกล้ล้นตลิ่ง [${alertCount}]\n\n` +
     `สถานี: ${stationLabel}\n` +
     `ชื่อในระบบ: ${stationNameTh}\n` +
     `ที่ตั้ง: ต.${tumbonTh} อ.${amphoeTh} จ.${provinceTh}\n` +
