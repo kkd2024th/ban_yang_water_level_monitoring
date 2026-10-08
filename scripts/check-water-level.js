@@ -139,7 +139,7 @@ function buildMessage(stationLabel, item, diffWlBank, level, alertCount) {
     `ระดับน้ำปัจจุบัน เทียบ ตลิ่ง: ${actualVText} ม. (${actualV >= 0 ? 'สูงกว่าตลิ่ง' : 'ต่ำกว่าตลิ่ง'})\n` +
     `ระดับเกณฑ์ที่ตั้งไว้: ${levelVText} ม.\n` +
     `เวลาที่ตรวจสอบ: ${now}\n\n` +
-    `ข้อมูลจาก: ThaiWater (สสน.)`
+    `ข้อมูลจาก: สสน.`
   );
 }
 
