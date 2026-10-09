@@ -134,10 +134,9 @@ function buildMessage(stationLabel, item, diffWlBank, level, alertCount) {
     `🚨 ระดับน้ำสถานี: ${stationLabel}\n` +
     `ชื่อในระบบ: ${stationNameTh}\n` +
     `ที่ตั้ง: ต.${tumbonTh} อ.${amphoeTh} จ.${provinceTh}\n` +
-    `${waterlevelNow} ม. (เมื่อเทียบกับระดับน้ำทะเล)\n` +
+    `≈${waterlevelNow} ม. (เมื่อเทียบกับระดับน้ำทะเล)\n` +
     `${actualVText} ม. (${actualV >= 0 ? 'สูงกว่าตลิ่ง' : 'ต่ำกว่าตลิ่ง'})\n` +
-    `ระดับเกณฑ์ที่ตั้งไว้ปัจจุบัน: ${levelVText} ม.\n` +
-    `เวลาที่ตรวจสอบ: ${now}\n\n`
+    `เกณฑ์ที่ตั้งไว้ปัจจุบัน: ${levelVText} ม.\n`
   );
 }
 
